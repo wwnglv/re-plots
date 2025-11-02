@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Аналитика эффективности менеджеров</title>
+  <title>Событие пропуск</title>
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <style>
@@ -26,27 +26,28 @@
     #graph {
       width: 90%;
       max-width: 1200px;
-      height: auto;
+      height: 700px;
       margin: 2rem auto;
       border-radius: 12px;
       background: white;
       box-shadow: 0 0 10px rgba(0,0,0,0.05);
       padding: 1rem;
-      white-space: pre-wrap;
-      word-break: break-word;
     }
   </style>
 </head>
 
 <body>
-  <header>Эффективность менеджеров: сентябрь → октябрь</header>
+  <header>Пропуск: сентябрь → октябрь</header>
 
   <div id="graph">Загружаю данные...</div>
 
   <script>
     const sheetID = "1cY_gg2UPmv-zqjUuOXe5fnwhSnQTdPxZfspS_8-VPyc";
     const sheetName = "пропуск";
-    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
+    // Заголовки начинаются с 9 строки
+    const range = "A9:L430";
+
+    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${sheetName}&range=${range}`;
 
     fetch(url)
       .then(res => res.text())
@@ -60,10 +61,54 @@
         }
 
         const headers = Object.keys(rows[0]);
-        document.getElementById("graph").innerText =
-          "✅ Таблица загружена!\n\nВот заголовки столбцов, которые реально пришли из Google Sheets:\n\n" +
-          headers.join("\n");
         console.log("Заголовки:", headers);
+
+        // Извлекаем данные
+        const x = rows.map(r => parseFloat(r["% Пришёл в сентябре"])).filter(v => !isNaN(v));
+        const y = rows.map(r => parseFloat(r["% Пришёл в октябре"])).filter(v => !isNaN(v));
+        const delta = rows.map(r => parseFloat(r["Δ % Пришёл"])).filter(v => !isNaN(v));
+        const names = rows.map(r => r["Телефон"]);
+
+        if (x.length === 0) {
+          document.getElementById("graph").innerText = "Не удалось найти нужные столбцы.";
+          console.warn("Проверь названия колонок в таблице.");
+          return;
+        }
+
+        const scatter = {
+          x,
+          y,
+          mode: "markers",
+          type: "scatter",
+          text: names,
+          marker: {
+            size: 8,
+            color: delta,
+            colorscale: "RdYlGn",
+            colorbar: { title: "Δ % пришёл" },
+            line: { width: 0.5, color: "DarkSlateGrey" }
+          },
+          name: "Клиенты"
+        };
+
+        const diagonal = {
+          x: [0, 100],
+          y: [0, 100],
+          mode: "lines",
+          line: { color: "gray", dash: "dot" },
+          showlegend: false
+        };
+
+        const layout = {
+          title: "Сравнение посещаемости клиентов: сентябрь → октябрь",
+          xaxis: { title: "% пришёл в сентябре", range: [0, 100] },
+          yaxis: { title: "% пришёл в октябре", range: [0, 100] },
+          template: "plotly_white",
+          width: 1100,
+          height: 700
+        };
+
+        Plotly.newPlot("graph", [scatter, diagonal], layout);
       })
       .catch(err => {
         document.getElementById("graph").innerText = "Ошибка загрузки данных";
