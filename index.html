@@ -13,6 +13,7 @@
       padding: 0;
       color: #222;
     }
+
     header {
       text-align: center;
       background: linear-gradient(90deg, #14b8a6, #0ea5e9);
@@ -22,6 +23,7 @@
       font-weight: 600;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
     }
+
     #graph {
       width: 90%;
       max-width: 1200px;
@@ -31,7 +33,9 @@
       background: white;
       box-shadow: 0 0 10px rgba(0,0,0,0.05);
       padding: 1rem;
+      text-align: center;
     }
+
     footer {
       text-align: center;
       font-size: 14px;
@@ -46,29 +50,31 @@
 
   <div id="graph">Загружаю данные...</div>
 
-  <footer>Данные обновляются автоматически из Google Sheets </footer>
+  <footer>Данные обновляются автоматически из Google Sheets © ReShape 2025</footer>
 
   <script>
-
     const sheetID = "1cY_gg2UPmv-zqjUuOXe5fnwhSnQTdPxZfspS_8-VPyc";
-
     const sheetName = "пропуск";
+    const encodedSheetName = encodeURIComponent(sheetName);
+    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${encodedSheetName}`;
 
-    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${sheetName}`;
-
-    fetch(url)
-      .then(res => res.text())
-      .then(csvText => {
+    async function loadData() {
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const csvText = await response.text();
         const rows = Plotly.d3.csv.parse(csvText);
-        console.log("Загружено строк:", rows.length);
 
-        // Извлекаем данные из столбцов
         const x = rows.map(r => parseFloat(r["% Пришёл в сентябре"])).filter(v => !isNaN(v));
         const y = rows.map(r => parseFloat(r["% Пришёл в октябре"])).filter(v => !isNaN(v));
         const delta = rows.map(r => parseFloat(r["Δ % Пришёл"])).filter(v => !isNaN(v));
         const names = rows.map(r => r["Телефон"]);
 
-        // Точки
+        if (x.length === 0 || y.length === 0) {
+          document.getElementById("graph").innerText = "Не удалось найти нужные колонки";
+          return;
+        }
+
         const scatter = {
           x, y,
           mode: "markers",
@@ -84,7 +90,6 @@
           name: "Клиенты"
         };
 
-
         const diagonal = {
           x: [0, 100],
           y: [0, 100],
@@ -92,7 +97,6 @@
           line: { color: "gray", dash: "dot" },
           showlegend: false
         };
-
 
         const layout = {
           title: "Сравнение посещаемости клиентов: сентябрь → октябрь",
@@ -104,11 +108,13 @@
         };
 
         Plotly.newPlot("graph", [scatter, diagonal], layout);
-      })
-      .catch(err => {
-        document.getElementById("graph").innerText = "Ошибка загрузки данных 😢";
-        console.error("Ошибка:", err);
-      });
+
+      } catch (err) {
+        document.getElementById("graph").innerText = "Ошибка загрузки данных";
+      }
+    }
+
+    loadData();
   </script>
 </body>
 </html>
