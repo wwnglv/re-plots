@@ -25,18 +25,14 @@
     #graph {
       width: 90%;
       max-width: 1200px;
-      height: 700px;
+      height: auto;
       margin: 2rem auto;
       border-radius: 12px;
       background: white;
       box-shadow: 0 0 10px rgba(0,0,0,0.05);
       padding: 1rem;
-    }
-    footer {
-      text-align: center;
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 1rem;
+      white-space: pre-wrap;
+      word-break: break-word;
     }
   </style>
 </head>
@@ -45,8 +41,6 @@
   <header>Эффективность менеджеров: сентябрь → октябрь</header>
 
   <div id="graph">Загружаю данные...</div>
-
-  <footer>Данные обновляются автоматически из Google Sheets</footer>
 
   <script>
     const sheetID = "1cY_gg2UPmv-zqjUuOXe5fnwhSnQTdPxZfspS_8-VPyc";
@@ -57,52 +51,11 @@
       .then(res => res.text())
       .then(csvText => {
         const rows = Plotly.d3.csv.parse(csvText);
-
-        const x = rows.map(r => parseFloat(r["% Пришёл в сентябре"])).filter(v => !isNaN(v));
-        const y = rows.map(r => parseFloat(r["% Пришёл в октябре"])).filter(v => !isNaN(v));
-        const delta = rows.map(r => parseFloat(r["Δ % Пришёл"])).filter(v => !isNaN(v));
-        const names = rows.map(r => r["Телефон"]);
-
-        if (x.length === 0) {
-          document.getElementById("graph").innerText = "Не удалось загрузить числовые данные.";
-          console.warn("Заголовки:", Object.keys(rows[0]));
-          return;
-        }
-
-        const scatter = {
-          x,
-          y,
-          mode: "markers",
-          type: "scatter",
-          text: names,
-          marker: {
-            size: 8,
-            color: delta,
-            colorscale: "RdYlGn",
-            colorbar: { title: "Δ % пришёл" },
-            line: { width: 0.5, color: "DarkSlateGrey" }
-          },
-          name: "Клиенты"
-        };
-
-        const diagonal = {
-          x: [0, 100],
-          y: [0, 100],
-          mode: "lines",
-          line: { color: "gray", dash: "dot" },
-          showlegend: false
-        };
-
-        const layout = {
-          title: "Сравнение посещаемости клиентов: сентябрь → октябрь",
-          xaxis: { title: "% пришёл в сентябре", range: [0, 100] },
-          yaxis: { title: "% пришёл в октябре", range: [0, 100] },
-          template: "plotly_white",
-          width: 1100,
-          height: 700
-        };
-
-        Plotly.newPlot("graph", [scatter, diagonal], layout);
+        const headers = Object.keys(rows[0]);
+        document.getElementById("graph").innerText =
+          "✅ Таблица загружена!\n\nВот заголовки столбцов, которые реально пришли из Google Sheets:\n\n" +
+          headers.join("\n");
+        console.log("Заголовки:", headers);
       })
       .catch(err => {
         document.getElementById("graph").innerText = "Ошибка загрузки данных";
