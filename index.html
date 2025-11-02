@@ -4,7 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Аналитика эффективности менеджеров</title>
-  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist@2.27.0/plotly.min.js"></script>
+  <script src="https://www.gstatic.com/charts/loader.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
   <style>
     body {
       font-family: "Inter", sans-serif;
@@ -50,71 +51,91 @@
 
   <div id="graph">Загружаю данные...</div>
 
-  <footer>Данные обновляются автоматически из Google Sheets © ReShape 2025</footer>
+  <footer>Данные обновляются автоматически из Google Sheets</footer>
 
   <script>
-    const sheetID = "1cY_gg2UPmv-zqjUuOXe5fnwhSnQTdPxZfspS_8-VPyc";
-    const sheetName = "пропуск";
-    const encodedSheetName = encodeURIComponent(sheetName);
-    const url = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&sheet=${encodedSheetName}`;
+    google.charts.load('current', { packages: ['corechart'] });
+    google.charts.setOnLoadCallback(loadData);
 
-    async function loadData() {
-      try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const csvText = await response.text();
-        const rows = Plotly.d3.csv.parse(csvText);
-
-        const x = rows.map(r => parseFloat(r["% Пришёл в сентябре"])).filter(v => !isNaN(v));
-        const y = rows.map(r => parseFloat(r["% Пришёл в октябре"])).filter(v => !isNaN(v));
-        const delta = rows.map(r => parseFloat(r["Δ % Пришёл"])).filter(v => !isNaN(v));
-        const names = rows.map(r => r["Телефон"]);
-
-        if (x.length === 0 || y.length === 0) {
-          document.getElementById("graph").innerText = "Не удалось найти нужные колонки";
-          return;
-        }
-
-        const scatter = {
-          x, y,
-          mode: "markers",
-          type: "scatter",
-          text: names,
-          marker: {
-            size: 8,
-            color: delta,
-            colorscale: "RdYlGn",
-            colorbar: { title: "Δ % пришёл" },
-            line: { width: 0.5, color: "DarkSlateGrey" }
-          },
-          name: "Клиенты"
-        };
-
-        const diagonal = {
-          x: [0, 100],
-          y: [0, 100],
-          mode: "lines",
-          line: { color: "gray", dash: "dot" },
-          showlegend: false
-        };
-
-        const layout = {
-          title: "Сравнение посещаемости клиентов: сентябрь → октябрь",
-          xaxis: { title: "% пришёл в сентябре", range: [0, 100] },
-          yaxis: { title: "% пришёл в октябре", range: [0, 100] },
-          template: "plotly_white",
-          width: 1100,
-          height: 700
-        };
-
-        Plotly.newPlot("graph", [scatter, diagonal], layout);
-
-      } catch (err) {
-        document.getElementById("graph").innerText = "Ошибка загрузки данных";
-      }
+    function loadData() {
+      const query = new google.visualization.Query(
+        "https://docs.google.com/spreadsheets/d/1cY_gg2UPmv-zqjUuOXe5fnwhSnQTdPxZfspS_8-VPyc/gviz/tq?sheet=пропуск"
+      );
+      query.send(handleResponse);
     }
 
-    loadData();
+    function handleResponse(response) {
+      if (response.isError()) {
+        document.getElementById("graph").innerText = "Ошибка загрузки данных";
+        console.error(response.getMessage());
+        return;
+      }
+
+      const data = response.getDataTable();
+      const numRows = data.getNumberOfRows();
+      const numCols = data.getNumberOfColumns();
+
+      let headers = [];
+      for (let c = 0; c < numCols; c++) headers.push(data.getColumnLabel(c));
+
+      const idxSept = headers.indexOf("% Пришёл в сентябре");
+      const idxOct = headers.indexOf("% Пришёл в октябре");
+      const idxDelta = headers.indexOf("Δ % Пришёл");
+      const idxPhone = headers.indexOf("Телефон");
+
+      if (idxSept === -1 || idxOct === -1 || idxDelta === -1) {
+        document.getElementById("graph").innerText = "Не удалось найти нужные столбцы";
+        return;
+      }
+
+      let x = [], y = [], delta = [], names = [];
+      for (let i = 0; i < numRows; i++) {
+        const sept = parseFloat(data.getValue(i, idxSept));
+        const oct = parseFloat(data.getValue(i, idxOct));
+        const d = parseFloat(data.getValue(i, idxDelta));
+        const name = data.getValue(i, idxPhone);
+        if (!isNaN(sept) && !isNaN(oct)) {
+          x.push(sept);
+          y.push(oct);
+          delta.push(d);
+          names.push(name);
+        }
+      }
+
+      const scatter = {
+        x, y,
+        mode: "markers",
+        type: "scatter",
+        text: names,
+        marker: {
+          size: 8,
+          color: delta,
+          colorscale: "RdYlGn",
+          colorbar: { title: "Δ % пришёл" },
+          line: { width: 0.5, color: "DarkSlateGrey" }
+        },
+        name: "Клиенты"
+      };
+
+      const diagonal = {
+        x: [0, 100],
+        y: [0, 100],
+        mode: "lines",
+        line: { color: "gray", dash: "dot" },
+        showlegend: false
+      };
+
+      const layout = {
+        title: "Сравнение посещаемости клиентов: сентябрь → октябрь",
+        xaxis: { title: "% пришёл в сентябре", range: [0, 100] },
+        yaxis: { title: "% пришёл в октябре", range: [0, 100] },
+        template: "plotly_white",
+        width: 1100,
+        height: 700
+      };
+
+      Plotly.newPlot("graph", [scatter, diagonal], layout);
+    }
   </script>
 </body>
 </html>
